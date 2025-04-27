@@ -6,3 +6,5 @@
   - Deleting files with del
   - Creating files with '+'
   - Opening files with `xdg-open`
+### COMPILE
+  `gcc -o main main.c -lncursesw`
