@@ -1,3 +1,17 @@
+/*
+ *                fExpl 
+ *                Alpha v.0.1.3
+ *                Author(s): TierTheTora
+ *               
+ *
+ *
+ *          https://github.com/TierTheTora/fexpl
+ *
+ *
+ */
+
+
+
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -12,6 +26,7 @@
 #include <pwd.h>
 #include <grp.h>
 #include <time.h>
+#include <regex.h>
 #include <locale.h>
 
 #define PAD_T 4
@@ -45,6 +60,9 @@ int main (int argc, char ** argv) {
         char pwd[PATH_MAX];
         char dirname[PATH_MAX];
         snprintf(dirname, sizeof(dirname), "%s", getcwd(pwd, sizeof(pwd)));
+        
+        struct passwd * pswd = getpwuid(getuid());
+        char * username = pswd->pw_name;
 	
         if (argc >= 2) {
                 char *dirch = malloc((strlen(argv[1]) + 1) * sizeof(char));
@@ -63,7 +81,7 @@ int main (int argc, char ** argv) {
         
         while (1) {
                 int dirc = 0;
-                long long tsize = -8192;
+                unsigned long int tsize = 0;
                 int c = getch();
                 
                 DIR *dir = opendir(dirname);
@@ -103,7 +121,9 @@ int main (int argc, char ** argv) {
                                 strftime(timebuf, sizeof(timebuf), "%b %d %H:%M", tm);
                                 memset(prnmsg, 0, sizeof(prnmsg));
                                 snprintf(prnmsg, sizeof(prnmsg), "%13d %s", (int)buf.st_size, timebuf);
-                                tsize += buf.st_size;
+                                if (strcmp(dirsnf[i + sndx], ".") != 0) {
+                                        if (strcmp(dirsnf[i + sndx], "..") != 0) tsize += buf.st_size;
+                                }
 
                                 x = strlen(prnmsg);
                                 mvprintw(PAD_T + i + 1, 0, "%s", prnmsg);
@@ -210,30 +230,6 @@ int main (int argc, char ** argv) {
                                 sndx = 0;
                                 continue;
                         }
-                        case '+': {
-                                char message[NAME_MAX];
-                                echo();
-                                timeout(-1);
-                                
-                                mvprintw(LINES - 2, 0, "File name: ");
-                                move(LINES - 1, 0);
-                                clrtoeol();
-                                getnstr(message, sizeof(message) - 1);
-                                
-                                message[strlen(message)] = 0;
-                                if (message[strlen(message) - 1] == '/') {
-                                        message[strlen(message) - 1] = 0;
-                                        mkdir(message, 0755);
-                                }
-                                else {
-                                        int fd = open(message, O_WRONLY | O_CREAT, 0644);
-                                        close(fd);
-                                }
-
-                                noecho();
-                                timeout(10);
-                                break;
-                        }
                         case KEY_F(12): {
                                 char message[NAME_MAX];
                                 echo();
@@ -250,6 +246,81 @@ int main (int argc, char ** argv) {
 
                                 noecho();
                                 timeout(10);
+                                break;
+                        }
+                        case 'c': {
+                                char command[PATH_MAX + 30];
+                                snprintf(command, sizeof(command), "echo -n \"%s/%s\" | xclip -sel clip", dirname, dirsnf[pos]);
+                                system(command);
+                                break;
+                        }
+                        case ':': {
+                                char message[NAME_MAX];
+                                echo();
+                                timeout(-1);
+                                
+                                mvprintw(LINES - 2, 0, "Command");
+                                move(LINES - 1, 0);
+                                clrtoeol();
+                                printw(":");
+                                curs_set(1);
+                                mvgetnstr(LINES - 1, 1, message, sizeof(message) - 1);
+                                
+                                message[strlen(message)] = 0;
+
+                                regex_t regex, regexn;
+                                int reti;
+                                reti = regcomp(&regex, "^goto\\s+(.*)$", REG_EXTENDED);
+                                regmatch_t pmatch[2];
+                                reti = regexec(&regex, message, 2, pmatch, 0);
+                                if (!reti) {
+                                        int startx = pmatch[1].rm_so;
+                                        int endx = pmatch[1].rm_eo;
+                                        int len = endx - startx;
+                                        char *cpt = malloc(len + 1);
+                                        strncpy(cpt, &message[startx], len);
+                                        cpt[len] = '\0';
+                                        if (!strcmp(cpt, "~")) sprintf(cpt, "/home/%s", username);
+                                        chdir(cpt);
+                                        char cwd[PATH_MAX];
+                                        snprintf(dirname, sizeof(dirname), "%s", getcwd(cwd, sizeof(cwd)));
+                                        free(cpt);
+                                }
+                                regfree(&regex);
+
+                                reti = regcomp(&regexn, "^new\\s+(.*)$", REG_EXTENDED);
+                                reti = regexec(&regexn, message, 2, pmatch, 0);
+                                if (!reti) {
+                                        int startx = pmatch[1].rm_so;
+                                        int endx = pmatch[1].rm_eo;
+                                        int len = endx - startx;
+                                        char *cpt = malloc(len + 1);
+                                        strncpy(cpt, &message[startx], len);
+                                        cpt[len] = '\0';
+                                        if (cpt[strlen(cpt) - 1] == '/') {
+                                                cpt[strlen(cpt) - 1] = 0;
+                                                mkdir(cpt, 0755);
+                                        }
+                                        else {
+                                                int fd = open(cpt, O_WRONLY | O_CREAT, 0644);
+                                                close(fd);
+                                        }
+                                        free(cpt);
+                                }
+                                regfree(&regexn);
+                                if (!strcmp(message, "q")) {
+                                        curs_set(0);
+
+                                        noecho();
+                                        timeout(10);
+                                        break;
+                                }
+
+                                curs_set(0);
+
+                                noecho();
+                                timeout(10);
+                                break;
                         }
                 }
                 char name[PATH_MAX];
@@ -272,8 +343,8 @@ int main (int argc, char ** argv) {
                 mvprintw(y + 1, x, "%s", name);
                 char cwd[PATH_MAX];
                 mvprintw(2, PAD_L, "%s", dirname);
-                mvprintw(3, PAD_L, "Total size: %lld", tsize);
-                for (int i = 0; i < dirc; ++i)free(dirsnf[i]);  
+                mvprintw(3, PAD_L, "Total size: %ld", tsize);
+                for (int i = 0; i < dirc; ++i)free(dirsnf[i]);
                 
                 free(dirsnf);
                 move(PAD_T, PAD_L);
