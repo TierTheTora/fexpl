@@ -277,6 +277,7 @@ int main (int argc, char ** argv) {
                 
                 free(dirsnf);
                 move(PAD_T, PAD_L);
+                usleep(1000);
         }
         endwin();
         return 0;
