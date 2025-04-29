@@ -46,10 +46,24 @@ int main (int argc, char ** argv) {
         char dirname[PATH_MAX];
         snprintf(dirname, sizeof(dirname), "%s", getcwd(pwd, sizeof(pwd)));
 	
+        if (argc >= 2) {
+                char *dirch = malloc((strlen(argv[1]) + 1) * sizeof(char));
+                memset(dirch, 0, sizeof(dirch));
+                strcpy(dirch, argv[1]);
+                for (int i = 2; i < argc; ++i) {
+                        dirch = realloc(dirch, strlen(dirch) + strlen(argv[i]) + 2);
+                        strcat(dirch, " ");
+                        strcat(dirch, argv[i]);
+                }
+                chdir(dirch);
+                char cwd[PATH_MAX];
+                snprintf(dirname, sizeof(dirname), "%s", getcwd(cwd, sizeof(cwd)));
+                free(dirch);
+        }
         
         while (1) {
-                refresh();
                 int dirc = 0;
+                long long tsize = -8192;
                 int c = getch();
                 
                 DIR *dir = opendir(dirname);
@@ -89,10 +103,11 @@ int main (int argc, char ** argv) {
                                 strftime(timebuf, sizeof(timebuf), "%b %d %H:%M", tm);
                                 memset(prnmsg, 0, sizeof(prnmsg));
                                 snprintf(prnmsg, sizeof(prnmsg), "%13d %s", (int)buf.st_size, timebuf);
+                                tsize += buf.st_size;
 
                                 x = strlen(prnmsg);
-                                mvprintw(PAD_T + i, 0, "%s", prnmsg);
-                                mvprintw(PAD_T + i, strlen(prnmsg), "  %s%c", dirsnf[i + sndx], apnd);
+                                mvprintw(PAD_T + i + 1, 0, "%s", prnmsg);
+                                mvprintw(PAD_T + i + 1, strlen(prnmsg), "  %s%c", dirsnf[i + sndx], apnd);
                         }
                 }
                 
@@ -116,7 +131,7 @@ int main (int argc, char ** argv) {
                                         if (sndx < 0) sndx = 0;
                                         if (sndx != 0) {
                                                 --sndx;
-                                                y = LINES - 1;
+                                                y = LINES - 2;
                                         }
                                 }
                                 if (y < PAD_T) y = PAD_T;
@@ -124,9 +139,9 @@ int main (int argc, char ** argv) {
                         case KEY_DOWN: if (pos < dirc - 1) {
                                         y++;
                                         pos++;
-                                        if (y >= LINES) {
+                                        if (y >= LINES - 1) {
                                                 sndx++;
-                                                y = LINES - 1;
+                                                y = LINES - 2;
                                         }
                                 }
                                 break;
@@ -254,9 +269,10 @@ int main (int argc, char ** argv) {
                         apnd = '*';
                 }
                 snprintf(name, sizeof(name), " > %s%c", dirsnf[pos], apnd);
-                mvprintw(y, x, "%s", name);
+                mvprintw(y + 1, x, "%s", name);
                 char cwd[PATH_MAX];
                 mvprintw(2, PAD_L, "%s", dirname);
+                mvprintw(3, PAD_L, "Total size: %lld", tsize);
                 for (int i = 0; i < dirc; ++i)free(dirsnf[i]);  
                 
                 free(dirsnf);
