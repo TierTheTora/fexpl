@@ -1,3 +1,4 @@
+
 /*
  *                fExpl 
  *                Alpha v.0.1.3
@@ -48,8 +49,6 @@ int main (int argc, char ** argv) {
         start_color();
         use_default_colors();
 
-        timeout(10);
-
         init_pair(1, COLOR_GREEN, -1);
         bkgd(COLOR_PAIR(1));
 
@@ -58,15 +57,15 @@ int main (int argc, char ** argv) {
         int pos = 0;
         int sndx = 0;
         char pwd[PATH_MAX];
-        char dirname[PATH_MAX];
-        snprintf(dirname, sizeof(dirname), "%s", getcwd(pwd, sizeof(pwd)));
+        char *dirname = (char*) malloc((strlen(getcwd(pwd, sizeof(pwd))) + 1) * sizeof(char));
+        strncpy(dirname, getcwd(pwd, sizeof(pwd)), strlen(pwd) + 1);
         
         struct passwd * pswd = getpwuid(getuid());
         char * username = pswd->pw_name;
 	
         if (argc >= 2) {
                 char *dirch = malloc((strlen(argv[1]) + 1) * sizeof(char));
-                memset(dirch, 0, sizeof(dirch));
+                memset(dirch, 0, strlen(argv[1]) + 1);
                 strcpy(dirch, argv[1]);
                 for (int i = 2; i < argc; ++i) {
                         dirch = realloc(dirch, strlen(dirch) + strlen(argv[i]) + 2);
@@ -75,19 +74,23 @@ int main (int argc, char ** argv) {
                 }
                 chdir(dirch);
                 char cwd[PATH_MAX];
-                snprintf(dirname, sizeof(dirname), "%s", getcwd(cwd, sizeof(cwd)));
+                free(dirname);
+                dirname = (char*)malloc((strlen(getcwd(cwd, sizeof(cwd))) + 1) * sizeof(char));
+                strncpy(dirname, getcwd(cwd, sizeof(cwd)), strlen(cwd) + 1);
                 free(dirch);
         }
+        struct stat buf;
         
         while (1) {
+                int dirname_len = strlen(dirname);
                 int dirc = 0;
                 unsigned long int tsize = 0;
-                int c = getch();
                 
                 DIR *dir = opendir(dirname);
                 struct dirent *de;
  
                 char **dirsnf = NULL;
+                dirc = 0;
                 while ((de = readdir(dir)) != NULL) {
                         dirsnf = realloc(dirsnf, (dirc + 1) * sizeof(char*));
                         dirsnf[dirc] = strdup(de->d_name);
@@ -99,8 +102,9 @@ int main (int argc, char ** argv) {
                 for (int i = 0; i < dirc; ++i) {
                         if (i + sndx < dirc) {
                                 char apnd = '\0';
-                                char fullpath[PATH_MAX]; 
-                                snprintf(fullpath, sizeof(fullpath) + 2, "%s/%s", dirname, dirsnf[i + sndx]);
+                                char fullpath[strlen(dirsnf[i + sndx]) + dirname_len + 2]; 
+                                snprintf(fullpath, sizeof(fullpath), "%s/%s", dirname, dirsnf[i + sndx]);
+                                int res = stat(fullpath, &buf);
                                 DIR *dtmp = opendir(fullpath);
                                 if (dtmp != NULL) { 
                                         apnd = '/';
@@ -109,11 +113,9 @@ int main (int argc, char ** argv) {
                                 else if (access(fullpath, X_OK) == 0) {
                                         apnd = '*';
                                 }
-                                struct stat buf;
                                 struct group  *gr = getgrgid(buf.st_gid);
                                 struct tm *tm = localtime(&buf.st_mtime);
 	                        
-                                int res = stat(dirsnf[i + sndx], &buf);
  
                                 char timebuf[64];
                                 char prnmsg[128];
@@ -131,13 +133,36 @@ int main (int argc, char ** argv) {
                         }
                 }
                 
+                char name[PATH_MAX];
+                closedir(dir);
+                if (y < PAD_T) y = PAD_T;
+                if (y >= dirc + PAD_T) y = dirc + 2;
+
+                char apnd = '\0';
+                char fullpath[strlen(dirsnf[pos]) + dirname_len + 2]; 
+                snprintf(fullpath, sizeof(fullpath), "%s/%s", dirname, dirsnf[pos]);
+                DIR *dtmp = opendir(fullpath);
+                if (dtmp != NULL) { 
+                        apnd = '/';
+                        closedir(dtmp);
+                }
+                else if (access(fullpath, X_OK) == 0) {
+                        apnd = '*';
+                }
+                snprintf(name, sizeof(name), " > %s%c", dirsnf[pos], apnd);
+                mvprintw(y + 1, x, "%s", name);
+                char cwd[PATH_MAX];
+                mvprintw(2, PAD_L, "%s", dirname);
+                mvprintw(3, PAD_L, "Total size: %ld", tsize);
+                usleep(100);
+                int c = getch();
                 switch (c) {
                         case 'q':
                                 if (dirsnf != NULL) {
                                         for (int i = 0; i < dirc; ++i) free(dirsnf[i]);
                                         free(dirsnf);
                                 }
-
+                                free(dirname);
                                 endwin();
                                 exit(0);
                                 break;
@@ -166,13 +191,15 @@ int main (int argc, char ** argv) {
                                 }
                                 break;
                         case '\n': {
-                                char path[PATH_MAX];
-                                snprintf(path, sizeof(path) + 2, "%s/%s", dirname, dirsnf[pos]);
+                                char path[strlen(dirsnf[pos]) + dirname_len + 2]; 
+                                snprintf(path, sizeof(path), "%s/%s", dirname, dirsnf[pos]);
                                 DIR *dtmp = opendir(path);
                                 if (dtmp != NULL) {
                                         chdir(path);
                                         char cwd[PATH_MAX];
-                                        snprintf(dirname, sizeof(dirname), "%s", getcwd(cwd, sizeof(cwd)));
+                                        free(dirname);
+                                        dirname = (char*)malloc((strlen(getcwd(cwd, sizeof(cwd))) + 1) * sizeof(char));
+                                        strncpy(dirname, getcwd(cwd, sizeof(cwd)), strlen(cwd) + 1);
                                         y = PAD_T;
                                         pos = 0;
                                         sndx = 0;
@@ -192,7 +219,9 @@ int main (int argc, char ** argv) {
                         case KEY_BACKSPACE:
                                 chdir("..");
                                 char cwd[PATH_MAX];
-                                snprintf(dirname, sizeof(dirname), "%s", getcwd(cwd, sizeof(cwd)));
+                                free(dirname);
+                                dirname = (char*)malloc((strlen(getcwd(cwd, sizeof(cwd))) + 1) * sizeof(char));
+                                strncpy(dirname, getcwd(cwd, sizeof(cwd)), strlen(cwd) + 1);
                                 y = PAD_T;
                                 pos = 0;
                                 sndx = 0;
@@ -233,7 +262,6 @@ int main (int argc, char ** argv) {
                         case KEY_F(12): {
                                 char message[NAME_MAX];
                                 echo();
-                                timeout(-1);
                                 
                                 mvprintw(LINES - 2, 0, "File name: ");
                                 move(LINES - 1, 0);
@@ -245,11 +273,10 @@ int main (int argc, char ** argv) {
                                 rename(dirsnf[pos], message);
 
                                 noecho();
-                                timeout(10);
                                 break;
                         }
                         case 'c': {
-                                char command[PATH_MAX + 30];
+                                char command[strlen(dirsnf[pos] + dirname_len + 29)];
                                 snprintf(command, sizeof(command), "echo -n \"%s/%s\" | xclip -sel clip", dirname, dirsnf[pos]);
                                 system(command);
                                 break;
@@ -257,7 +284,6 @@ int main (int argc, char ** argv) {
                         case ':': {
                                 char message[NAME_MAX];
                                 echo();
-                                timeout(-1);
                                 
                                 mvprintw(LINES - 2, 0, "Command");
                                 move(LINES - 1, 0);
@@ -283,7 +309,12 @@ int main (int argc, char ** argv) {
                                         if (!strcmp(cpt, "~")) sprintf(cpt, "/home/%s", username);
                                         chdir(cpt);
                                         char cwd[PATH_MAX];
-                                        snprintf(dirname, sizeof(dirname), "%s", getcwd(cwd, sizeof(cwd)));
+                                        y = PAD_T;
+                                        pos = 0;
+                                        sndx = 0;
+                                        free(dirname);
+                                        dirname = (char*)malloc((strlen(getcwd(cwd, sizeof(cwd))) + 1) * sizeof(char));
+                                        strncpy(dirname, getcwd(cwd, sizeof(cwd)), strlen(cwd) + 1);
                                         free(cpt);
                                 }
                                 regfree(&regex);
@@ -312,44 +343,23 @@ int main (int argc, char ** argv) {
                                         curs_set(0);
 
                                         noecho();
-                                        timeout(10);
                                         break;
                                 }
 
                                 curs_set(0);
 
                                 noecho();
-                                timeout(10);
                                 break;
                         }
                 }
-                char name[PATH_MAX];
-                closedir(dir);
-                if (y < PAD_T) y = PAD_T;
-                if (y >= dirc + PAD_T) y = dirc + 2;
-
-                char apnd = '\0';
-                char fullpath[PATH_MAX];
-                snprintf(fullpath, sizeof(fullpath) + 2, "%s/%s", dirname, dirsnf[pos]);
-                DIR *dtmp = opendir(fullpath);
-                if (dtmp != NULL) { 
-                        apnd = '/';
-                        closedir(dtmp);
+                if (dirsnf != NULL) {
+                        for (int i = 0; i < dirc; ++i) free(dirsnf[i]);
+                        free(dirsnf);
+                        dirsnf = NULL;
                 }
-                else if (access(fullpath, X_OK) == 0) {
-                        apnd = '*';
-                }
-                snprintf(name, sizeof(name), " > %s%c", dirsnf[pos], apnd);
-                mvprintw(y + 1, x, "%s", name);
-                char cwd[PATH_MAX];
-                mvprintw(2, PAD_L, "%s", dirname);
-                mvprintw(3, PAD_L, "Total size: %ld", tsize);
-                for (int i = 0; i < dirc; ++i)free(dirsnf[i]);
-                
-                free(dirsnf);
                 move(PAD_T, PAD_L);
-                usleep(1000);
         }
+        free(dirname);
         endwin();
         return 0;
 }
