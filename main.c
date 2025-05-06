@@ -41,9 +41,7 @@ int cmp (const void* a, const void* b) {
 int main (int argc, char ** argv) {
         setlocale(LC_ALL, "");
         initscr();
-        refresh();
         noecho();
-        cbreak();
         keypad(stdscr, 1);
         curs_set(0);
         start_color();
@@ -154,7 +152,7 @@ int main (int argc, char ** argv) {
                 char cwd[PATH_MAX];
                 mvprintw(2, PAD_L, "%s", dirname);
                 mvprintw(3, PAD_L, "Total size: %ld", tsize);
-                usleep(100);
+                napms(1);
                 int c = getch();
                 switch (c) {
                         case 'q':
