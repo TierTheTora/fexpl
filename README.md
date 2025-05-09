@@ -8,5 +8,6 @@
   - Change directory with ':goto <dir>'
   - Copy file directory with 'c'
   - Opening files with `xdg-open`
+  - Execute terminal commands with '!<command>'
 ### COMPILE
   `gcc -o main main.c -lncursesw`
