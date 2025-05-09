@@ -292,7 +292,7 @@ int main (int argc, char ** argv) {
                                 
                                 message[strlen(message)] = 0;
 
-                                regex_t regex, regexn;
+                                regex_t regex, regexn, regexe;
                                 int reti;
                                 reti = regcomp(&regex, "^goto\\s+(.*)$", REG_EXTENDED);
                                 regmatch_t pmatch[2];
@@ -337,9 +337,43 @@ int main (int argc, char ** argv) {
                                         free(cpt);
                                 }
                                 regfree(&regexn);
+
+                                reti = regcomp(&regexe, "^!(.*)$", REG_EXTENDED);
+                                reti = regexec(&regexe, message, 2, pmatch, 0);
+                                if (!reti) {
+                                        int startx = pmatch[1].rm_so;
+                                        int endx = pmatch[1].rm_eo;
+                                        int len = endx - startx;
+                                        char *cpt = malloc(len + 1);
+                                        strncpy(cpt, &message[startx], len);
+                                        cpt[len] = '\0';
+                                        
+                                        free(dirname);
+                                        endwin();
+                                        
+                                        system(cpt);
+                                        free(cpt);
+
+                                        getch();
+
+                                        setlocale(LC_ALL, "");
+                                        initscr();
+                                        noecho();
+                                        keypad(stdscr, 1);
+                                        curs_set(0);
+                                        start_color();
+                                        use_default_colors();
+
+                                        init_pair(1, COLOR_GREEN, -1);
+                                        bkgd(COLOR_PAIR(1));
+                                        
+                                        char pwd[PATH_MAX];
+                                        dirname = (char*) malloc((strlen(getcwd(pwd, sizeof(pwd))) + 1) * sizeof(char));
+                                        strncpy(dirname, getcwd(pwd, sizeof(pwd)), strlen(pwd) + 1);
+                                }
+                                regfree(&regexe);
                                 if (!strcmp(message, "q")) {
                                         curs_set(0);
-
                                         noecho();
                                         break;
                                 }
